@@ -40,7 +40,11 @@ Adjust parameters in the sidebar and explore how digital bits become analog wave
 
 # -------------------- SIDEBAR --------------------
 st.sidebar.header("⚙️ Simulation Controls")
-mod_type = st.sidebar.selectbox("Modulation Type", ["ASK", "BPSK", "QPSK", "FSK", "DPSK"])
+mod_type = st.sidebar.selectbox(
+    "Modulation Type",
+    ["ASK", "BPSK", "QPSK", "FSK", "DPSK"],
+    index=0
+)
 bit_input = st.sidebar.text_input("Bit Stream", "10110011")
 bit_rate = st.sidebar.slider("Bit Rate (bits/sec)", 1, 20, 5)
 A = st.sidebar.slider("Amplitude", 1.0, 10.0, 3.0)
@@ -48,10 +52,9 @@ fc = st.sidebar.slider("Carrier Frequency (Hz)", 1.0, 50.0, 10.0)
 fs = st.sidebar.slider("Samples per bit", 50, 1000, 300)
 snr_db = st.sidebar.slider("SNR (dB)", -5, 40, 25)
 
+f_delta = None
 if mod_type == "FSK":
     f_delta = st.sidebar.slider("Frequency Separation (Hz)", 2.0, 20.0, 6.0)
-else:
-    f_delta = None
 
 # -------------------- DATA PREP --------------------
 bits = [b for b in bit_input if b in ('0', '1')]
@@ -108,10 +111,10 @@ noise_power = sig_power / (10**(snr_db/10))
 noise = np.sqrt(noise_power) * np.random.randn(len(signal))
 rx = signal + noise
 
-# -------------------- TABS FOR UI --------------------
-tab1, tab2, tab3 = st.tabs(["📈 Waveform", "🌌 Constellation", "📘 Theory"])
+# -------------------- TABS --------------------
+tab1, tab2 = st.tabs(["📈 Waveform", "📘 Theory & Insights"])
 
-# -------- TAB 1: Waveform Visualization --------
+# -------- TAB 1: Waveform --------
 with tab1:
     st.subheader(f"🧩 {mod_type} Waveform Visualization")
     fig = go.Figure()
@@ -127,44 +130,52 @@ with tab1:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# -------- TAB 2: Constellation Diagram --------
+# -------- TAB 2: Theory --------
 with tab2:
-    st.subheader("🌌 Constellation Representation")
-    if mod_type == "ASK":
-        I, Q = [0, A], [0, 0]
-    elif mod_type == "BPSK":
-        I, Q = [A, -A], [0, 0]
-    elif mod_type == "QPSK":
-        I = [np.cos(pi/4), np.cos(3*pi/4), np.cos(5*pi/4), np.cos(7*pi/4)]
-        Q = [np.sin(pi/4), np.sin(3*pi/4), np.sin(5*pi/4), np.sin(7*pi/4)]
-    elif mod_type == "FSK":
-        I, Q = [f1, f2], [0, 0]
-    elif mod_type == "DPSK":
-        I, Q = [np.cos(0), np.cos(pi)], [np.sin(0), np.sin(pi)]
-
-    const_fig = go.Figure(data=go.Scatter(x=I, y=Q, mode='markers+text',
-                                          text=[f"Symbol {i+1}" for i in range(len(I))],
-                                          textposition="top center",
-                                          marker=dict(size=14, color="#00FFAA", line=dict(width=1, color="black"))))
-    const_fig.update_layout(template="plotly_dark",
-                            xaxis_title="In-phase (I)",
-                            yaxis_title="Quadrature (Q)",
-                            height=450,
-                            title=f"{mod_type} Constellation Diagram")
-    st.plotly_chart(const_fig, use_container_width=True)
-
-# -------- TAB 3: Theory Section --------
-with tab3:
     st.subheader(f"📘 Understanding {mod_type}")
-    theory_text = {
-        "ASK": "In Amplitude Shift Keying (ASK), binary data is represented by switching the carrier amplitude between two levels.",
-        "BPSK": "In Binary Phase Shift Keying (BPSK), bits '0' and '1' are represented by phase shifts of 0° and 180° respectively.",
-        "QPSK": "In Quadrature PSK, two bits are grouped per symbol, resulting in four phase shifts (45°, 135°, 225°, 315°).",
-        "FSK": "In Frequency Shift Keying (FSK), bits are represented by varying the carrier frequency (f₁ and f₂).",
-        "DPSK": "In Differential PSK, data is encoded as phase changes relative to the previous symbol."
+    theory_full = {
+        "ASK": {
+            "description": "Amplitude Shift Keying (ASK) represents binary data by switching the carrier amplitude between two levels.",
+            "advantages": ["Simple to implement", "Low bandwidth requirement"],
+            "disadvantages": ["Sensitive to noise", "Less power-efficient"],
+            "applications": ["Optical fiber communication", "AM radio transmission"]
+        },
+        "BPSK": {
+            "description": "Binary Phase Shift Keying (BPSK) represents bits '0' and '1' by phase shifts of 0° and 180°.",
+            "advantages": ["Robust to noise", "Simple coherent demodulation"],
+            "disadvantages": ["Low data rate", "Requires coherent receiver"],
+            "applications": ["Satellite communication", "RFID systems"]
+        },
+        "QPSK": {
+            "description": "Quadrature PSK (QPSK) encodes two bits per symbol, creating four phase states (45°, 135°, 225°, 315°).",
+            "advantages": ["Higher data rate than BPSK", "Bandwidth efficient"],
+            "disadvantages": ["More complex receiver design", "Phase ambiguity issues"],
+            "applications": ["Wi-Fi (802.11)", "3G/4G LTE"]
+        },
+        "FSK": {
+            "description": "Frequency Shift Keying (FSK) transmits binary data by shifting the carrier between two frequencies.",
+            "advantages": ["Resistant to amplitude noise", "Simple demodulation techniques"],
+            "disadvantages": ["Requires larger bandwidth", "Slower data rates"],
+            "applications": ["Modems", "Low-frequency radio communication"]
+        },
+        "DPSK": {
+            "description": "Differential PSK (DPSK) encodes bits using phase differences between successive symbols.",
+            "advantages": ["No coherent reference required", "Simpler demodulation than PSK"],
+            "disadvantages": ["Slightly higher error rate than BPSK", "Phase error propagation"],
+            "applications": ["Wireless LANs", "Optical communication systems"]
+        }
     }
-    st.write(theory_text[mod_type])
-    st.info("💡 Tip: Try changing SNR to see how noise affects constellation clarity!")
+
+    if mod_type in theory_full:
+        tinfo = theory_full[mod_type]
+        st.markdown(f"**Description:** {tinfo['description']}")
+        st.markdown(f"**Advantages:**\n- " + "\n- ".join(tinfo['advantages']))
+        st.markdown(f"**Disadvantages:**\n- " + "\n- ".join(tinfo['disadvantages']))
+        st.markdown(f"**Applications:**\n- " + "\n- ".join(tinfo['applications']))
+        st.info("💡 Tip: Lowering SNR increases noise and makes signal detection harder, demonstrating real-world challenges.")
+    else:
+        st.warning("⚠ Please select a valid modulation scheme.")
 
 st.markdown("---")
-st.caption("🚀 Built by Skanda | Streamlit + Plotly | Designed for learning digital modulation visually")
+st.caption("Digital Modulation Visualizer | Streamlit + Plotly")
+st.write("DONE BY:""Harsha,","Neel,","Skanda,","Jayden")
